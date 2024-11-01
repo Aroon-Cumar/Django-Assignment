@@ -1,1 +1,58 @@
-Question 1:   
+Question 1: Django Signals are executed synchronously. The receiver functions connected to a signal, run immediately within the 
+same thread as the signal sender
+
+Example:
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.contrib.auth.models import User
+
+@receiver(post_save, sender=User)
+def signal_receiver(sender, receiver, **kwargs):
+     print("Signal received")
+
+user= User.objects.create(username="test_user")
+#when a user saved this receiver runs synchronously and start to print  
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question 2: Yes Django signals run in same thread as the caller by default. any of the code connected to a signal will be executed in 
+the main thread unless explictly handled.
+
+Example:
+
+import threading
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.contrib.auth.models import User
+
+@receiver(post_save, sender=User)
+def signal_receiver(sender, instance, **kwargs):
+     print(f"Signal in thread:{threading.current_thread().name}")
+
+user= User.objects.create(username="test_user")
+#Output will be show the main thread, indicating synchronous execution in the same thread.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question 3: By Default, Django signals do run in the same database transaction as the caller if they are connected to models 
+save signals like pre_save,post_save. if a signal receiver function raises an error, it can cause the transaction to roll back.
+
+Example:
+
+from django.db import transaction
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.contrib.auth.models import User
+
+@receiver(post_save, sender=User)
+def signal_receiver(sender, instance, **kwargs):
+    if instance.usename == "rollback":
+        raise Exception("Trigger rollback")
+
+try:
+    with transaction.atomic():
+         user= User.objects.create(usename="rollback")
+except Exception as e:
+    print("transaction rolled back:",e)
+#this will rollback the transaction if rollback is set, showing signal runs in the same transaction.
